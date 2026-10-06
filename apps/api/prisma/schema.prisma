@@ -1,0 +1,11 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// El modelo de datos (Exercise, Workout, WorkoutExercise, WorkoutSet,
+// Routine, RoutineItem) se agrega en la siguiente fase.
