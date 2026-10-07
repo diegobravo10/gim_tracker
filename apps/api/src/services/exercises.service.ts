@@ -30,3 +30,28 @@ export async function deleteExercise(id: string) {
   await getExercise(id);
   await prisma.exercise.delete({ where: { id } });
 }
+
+export async function getLastExerciseSets(id: string) {
+  await getExercise(id);
+
+  const lastWorkoutExercise = await prisma.workoutExercise.findFirst({
+    where: { exerciseId: id, workout: { finishedAt: { not: null } } },
+    orderBy: { workout: { startedAt: 'desc' } },
+    include: { sets: { orderBy: { order: 'asc' } }, workout: true },
+  });
+
+  if (!lastWorkoutExercise) {
+    throw new HttpError(404, 'NO_PREVIOUS_DATA', 'No hay un entreno previo con este ejercicio.');
+  }
+
+  return {
+    workoutId: lastWorkoutExercise.workoutId,
+    startedAt: lastWorkoutExercise.workout.startedAt,
+    sets: lastWorkoutExercise.sets.map((set) => ({
+      order: set.order,
+      weightKg: set.weightKg,
+      reps: set.reps,
+      isWarmup: set.isWarmup,
+    })),
+  };
+}

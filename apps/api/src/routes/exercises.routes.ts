@@ -25,6 +25,11 @@ exercisesRouter.get('/:id', async (req, res) => {
   res.json(exercise);
 });
 
+exercisesRouter.get('/:id/last', async (req, res) => {
+  const last = await exercisesService.getLastExerciseSets(req.params.id);
+  res.json(last);
+});
+
 exercisesRouter.patch('/:id', async (req, res) => {
   const data = updateExerciseSchema.parse(req.body);
   const exercise = await exercisesService.updateExercise(req.params.id, data);

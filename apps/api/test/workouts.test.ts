@@ -104,6 +104,34 @@ describe('/workouts', () => {
     expect(ids).not.toContain(old.id);
   });
 
+  it('calcula el volumen total sin contar calentamientos', async () => {
+    const exercise = await prisma.exercise.create({
+      data: { name: 'Press de banca', muscleGroup: 'Pecho' },
+    });
+    const created = await request(app).post('/workouts').send({});
+    const workoutExercise = await request(app)
+      .post(`/workouts/${created.body.id}/exercises`)
+      .send({ exerciseId: exercise.id });
+    await request(app)
+      .post(`/workout-exercises/${workoutExercise.body.id}/sets`)
+      .send({ weightKg: 20, reps: 15, isWarmup: true });
+    await request(app)
+      .post(`/workout-exercises/${workoutExercise.body.id}/sets`)
+      .send({ weightKg: 60, reps: 8 });
+    await request(app)
+      .post(`/workout-exercises/${workoutExercise.body.id}/sets`)
+      .send({ weightKg: 60, reps: 8 });
+
+    const list = await request(app).get('/workouts');
+    const summary = list.body.find((w: { id: string }) => w.id === created.body.id);
+
+    expect(summary.totalVolumeKg).toBe(60 * 8 * 2);
+    expect(summary.exercises).toEqual([{ id: exercise.id, name: exercise.name }]);
+
+    const detail = await request(app).get(`/workouts/${created.body.id}`);
+    expect(detail.body.totalVolumeKg).toBe(60 * 8 * 2);
+  });
+
   it('obtiene el detalle de un entreno', async () => {
     const created = await request(app).post('/workouts').send({});
 

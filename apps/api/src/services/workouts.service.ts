@@ -13,6 +13,38 @@ const WORKOUT_DETAIL_INCLUDE = {
   },
 } satisfies Prisma.WorkoutInclude;
 
+type WorkoutWithExercises = Prisma.WorkoutGetPayload<{ include: typeof WORKOUT_DETAIL_INCLUDE }>;
+
+// Volumen = Σ kg×reps de las series de trabajo, sin calentamientos (ver CLAUDE.md Fase 3).
+function totalVolumeKg(workout: WorkoutWithExercises) {
+  return workout.exercises.reduce(
+    (sum, we) =>
+      sum +
+      we.sets
+        .filter((set) => !set.isWarmup)
+        .reduce((setSum, set) => setSum + set.weightKg * set.reps, 0),
+    0,
+  );
+}
+
+function toWorkoutDetail(workout: WorkoutWithExercises) {
+  return { ...workout, totalVolumeKg: totalVolumeKg(workout) };
+}
+
+function toWorkoutSummary(workout: WorkoutWithExercises) {
+  return {
+    id: workout.id,
+    routineId: workout.routineId,
+    startedAt: workout.startedAt,
+    finishedAt: workout.finishedAt,
+    totalVolumeKg: totalVolumeKg(workout),
+    exercises: workout.exercises.map((we) => ({
+      id: we.exercise.id,
+      name: we.exercise.name,
+    })),
+  };
+}
+
 async function assertNoActiveWorkout() {
   const active = await prisma.workout.findFirst({ where: { finishedAt: null } });
   if (active) {
@@ -38,7 +70,7 @@ export async function createWorkout(data: CreateWorkoutInput) {
     }));
   }
 
-  return prisma.workout.create({
+  const workout = await prisma.workout.create({
     data: {
       routineId: data.routineId,
       startedAt: new Date(),
@@ -46,6 +78,7 @@ export async function createWorkout(data: CreateWorkoutInput) {
     },
     include: WORKOUT_DETAIL_INCLUDE,
   });
+  return toWorkoutDetail(workout);
 }
 
 export async function getActiveWorkout() {
@@ -56,7 +89,7 @@ export async function getActiveWorkout() {
   if (!workout) {
     throw new HttpError(404, 'NO_ACTIVE_WORKOUT', 'No hay un entreno activo.');
   }
-  return workout;
+  return toWorkoutDetail(workout);
 }
 
 export async function getWorkout(id: string) {
@@ -67,12 +100,12 @@ export async function getWorkout(id: string) {
   if (!workout) {
     throw HttpError.notFound('El entreno no existe.');
   }
-  return workout;
+  return toWorkoutDetail(workout);
 }
 
-export function listWorkouts(query: ListWorkoutsQuery) {
+export async function listWorkouts(query: ListWorkoutsQuery) {
   const { from, to } = query;
-  return prisma.workout.findMany({
+  const workouts = await prisma.workout.findMany({
     where: {
       startedAt: {
         gte: from,
@@ -80,7 +113,9 @@ export function listWorkouts(query: ListWorkoutsQuery) {
       },
     },
     orderBy: { startedAt: 'desc' },
+    include: WORKOUT_DETAIL_INCLUDE,
   });
+  return workouts.map(toWorkoutSummary);
 }
 
 export async function finishWorkout(id: string) {
@@ -91,11 +126,12 @@ export async function finishWorkout(id: string) {
   if (workout.finishedAt) {
     throw HttpError.conflict('ALREADY_FINISHED', 'El entreno ya está terminado.');
   }
-  return prisma.workout.update({
+  const updated = await prisma.workout.update({
     where: { id },
     data: { finishedAt: new Date() },
     include: WORKOUT_DETAIL_INCLUDE,
   });
+  return toWorkoutDetail(updated);
 }
 
 export async function deleteWorkout(id: string) {
