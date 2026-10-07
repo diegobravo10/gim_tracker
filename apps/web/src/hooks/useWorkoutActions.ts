@@ -35,7 +35,12 @@ export function useWorkoutActions(queryKey: QueryKey) {
     onError: (_err, _vars, context) => {
       if (context?.previous) queryClient.setQueryData(queryKey, context.previous);
     },
-    onSettled: invalidate,
+    onSettled: () => {
+      invalidate();
+      // Un peso/reps/completado nuevo puede romper un PR: refresca el
+      // progreso de ejercicios para que el badge 🏆 reaccione al toque.
+      queryClient.invalidateQueries({ queryKey: ['exercise-progress'] });
+    },
   });
 
   const addSet = useMutation({

@@ -1,3 +1,4 @@
+import { Link } from 'react-router-dom';
 import type { WorkoutExercise } from '../api/types.ts';
 import { RestDurationControl } from './RestDurationControl.tsx';
 import { SetRow } from './SetRow.tsx';
@@ -5,6 +6,7 @@ import { SetRow } from './SetRow.tsx';
 interface ExerciseCardProps {
   workoutExercise: WorkoutExercise;
   lastTimeSummary?: string | null;
+  isPR?: boolean;
   onAddSet: () => void;
   onDeleteSet: (setId: string) => void;
   onChangeSetWeight: (setId: string, weightKg: number) => void;
@@ -16,6 +18,7 @@ interface ExerciseCardProps {
 export function ExerciseCard({
   workoutExercise,
   lastTimeSummary,
+  isPR,
   onAddSet,
   onDeleteSet,
   onChangeSetWeight,
@@ -27,7 +30,13 @@ export function ExerciseCard({
     <section className="rounded-2xl bg-neutral-900/40 p-3">
       <header className="mb-2 flex items-start justify-between">
         <div>
-          <h3 className="text-base font-semibold">{workoutExercise.exercise.name}</h3>
+          <Link
+            to={`/ejercicios/${workoutExercise.exerciseId}`}
+            className="flex items-center gap-1.5 text-base font-semibold underline-offset-2 active:underline"
+          >
+            {workoutExercise.exercise.name}
+            {isPR && <span aria-label="Nuevo récord personal">🏆</span>}
+          </Link>
           {lastTimeSummary && (
             <p className="text-sm text-neutral-500">Última vez: {lastTimeSummary}</p>
           )}

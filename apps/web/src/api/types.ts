@@ -67,3 +67,26 @@ export interface Routine {
   updatedAt: string;
   items: RoutineItem[];
 }
+
+export interface WorkoutProgressPoint {
+  workoutId: string;
+  startedAt: string;
+  maxWeightKg: number;
+  estimated1RM: number;
+  volumeKg: number;
+}
+
+export interface PRSummary {
+  value: number;
+  workoutId: string;
+  startedAt: string;
+}
+
+export interface ExerciseProgress {
+  byWorkout: WorkoutProgressPoint[];
+  prs: {
+    maxWeight: PRSummary | null;
+    estimated1RM: PRSummary | null;
+    volume: PRSummary | null;
+  };
+}

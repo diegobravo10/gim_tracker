@@ -55,3 +55,68 @@ export async function getLastExerciseSets(id: string) {
     })),
   };
 }
+
+// Epley: 1RM estimado = peso x (1 + reps/30).
+function estimateOneRepMax(weightKg: number, reps: number): number {
+  return weightKg * (1 + reps / 30);
+}
+
+interface WorkoutProgressPoint {
+  workoutId: string;
+  startedAt: Date;
+  maxWeightKg: number;
+  estimated1RM: number;
+  volumeKg: number;
+}
+
+type ProgressMetric = 'maxWeightKg' | 'estimated1RM' | 'volumeKg';
+
+function findPR(points: WorkoutProgressPoint[], metric: ProgressMetric) {
+  return points.reduce<WorkoutProgressPoint | null>((best, point) => {
+    if (!best || point[metric] > best[metric]) return point;
+    return best;
+  }, null);
+}
+
+function toPRSummary(point: WorkoutProgressPoint | null, metric: ProgressMetric) {
+  if (!point) return null;
+  return { value: point[metric], workoutId: point.workoutId, startedAt: point.startedAt };
+}
+
+export async function getExerciseProgress(id: string) {
+  await getExercise(id);
+
+  // PRs se calculan sobre series de trabajo ya confirmadas: sin
+  // calentamientos (igual que el volumen del Historial, Fase 3) y
+  // marcadas como completadas, para que el badge de PR en el entreno
+  // activo solo reaccione a series que el usuario ya dio por hechas.
+  const workoutExercises = await prisma.workoutExercise.findMany({
+    where: { exerciseId: id },
+    include: {
+      workout: true,
+      sets: { where: { isWarmup: false, completed: true } },
+    },
+    orderBy: { workout: { startedAt: 'asc' } },
+  });
+
+  const byWorkout: WorkoutProgressPoint[] = workoutExercises
+    .filter((we) => we.sets.length > 0)
+    .map((we) => ({
+      workoutId: we.workoutId,
+      startedAt: we.workout.startedAt,
+      maxWeightKg: Math.max(...we.sets.map((set) => set.weightKg)),
+      estimated1RM:
+        Math.round(Math.max(...we.sets.map((set) => estimateOneRepMax(set.weightKg, set.reps))) * 10) /
+        10,
+      volumeKg: we.sets.reduce((sum, set) => sum + set.weightKg * set.reps, 0),
+    }));
+
+  return {
+    byWorkout,
+    prs: {
+      maxWeight: toPRSummary(findPR(byWorkout, 'maxWeightKg'), 'maxWeightKg'),
+      estimated1RM: toPRSummary(findPR(byWorkout, 'estimated1RM'), 'estimated1RM'),
+      volume: toPRSummary(findPR(byWorkout, 'volumeKg'), 'volumeKg'),
+    },
+  };
+}

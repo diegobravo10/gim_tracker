@@ -1,7 +1,7 @@
 import { useMutation, useQueries, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { getExerciseLastSets } from '../api/exercises.ts';
+import { getExerciseLastSets, getExerciseProgress } from '../api/exercises.ts';
 import { ApiError } from '../api/client.ts';
 import * as workoutsApi from '../api/workouts.ts';
 import type { Exercise, LastExerciseSets, WorkoutExercise } from '../api/types.ts';
@@ -41,6 +41,13 @@ export function ActiveWorkoutPage() {
       queryKey: ['exercise-last', we.exerciseId],
       queryFn: () => fetchLastOrNull(we.exerciseId),
       staleTime: Infinity,
+    })),
+  });
+
+  const progressQueries = useQueries({
+    queries: (workout?.exercises ?? []).map((we) => ({
+      queryKey: ['exercise-progress', we.exerciseId],
+      queryFn: () => getExerciseProgress(we.exerciseId),
     })),
   });
 
@@ -118,11 +125,18 @@ export function ActiveWorkoutPage() {
       <div className="flex flex-col gap-3">
         {workout.exercises.map((we, index) => {
           const last = lastDataQueries[index]?.data;
+          const prs = progressQueries[index]?.data?.prs;
+          const isPR =
+            !!prs &&
+            (prs.maxWeight?.workoutId === workout.id ||
+              prs.estimated1RM?.workoutId === workout.id ||
+              prs.volume?.workoutId === workout.id);
           return (
             <ExerciseCard
               key={we.id}
               workoutExercise={we}
               lastTimeSummary={last ? formatLastTimeSummary(last.sets) : null}
+              isPR={isPR}
               onAddSet={() => handleAddSet(we)}
               onDeleteSet={(setId) => actions.deleteSet.mutate(setId)}
               onChangeSetWeight={(setId, weightKg) =>
