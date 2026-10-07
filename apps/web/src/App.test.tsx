@@ -3,13 +3,16 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, expect, it } from 'vitest';
 import App from './App.tsx';
+import { RestTimerProvider } from './contexts/RestTimerContext.tsx';
 
 function renderAt(path: string) {
   const queryClient = new QueryClient();
   return render(
     <QueryClientProvider client={queryClient}>
       <MemoryRouter initialEntries={[path]}>
-        <App />
+        <RestTimerProvider>
+          <App />
+        </RestTimerProvider>
       </MemoryRouter>
     </QueryClientProvider>,
   );
@@ -26,6 +29,6 @@ describe('App', () => {
   it('renderiza la pantalla de rutinas en /rutinas', () => {
     renderAt('/rutinas');
     expect(screen.getByRole('heading', { name: 'Rutinas' })).toBeInTheDocument();
-    expect(screen.getByText('Próximamente.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '+ Nueva' })).toBeInTheDocument();
   });
 });

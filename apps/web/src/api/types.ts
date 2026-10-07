@@ -49,3 +49,21 @@ export interface LastExerciseSets {
   startedAt: string;
   sets: { order: number; weightKg: number; reps: number; isWarmup: boolean }[];
 }
+
+export interface RoutineItem {
+  id: string;
+  routineId: string;
+  exerciseId: string;
+  order: number;
+  targetSets: number | null;
+  targetReps: number | null;
+  exercise: Exercise;
+}
+
+export interface Routine {
+  id: string;
+  name: string;
+  createdAt: string;
+  updatedAt: string;
+  items: RoutineItem[];
+}

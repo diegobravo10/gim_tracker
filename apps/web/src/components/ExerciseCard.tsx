@@ -1,4 +1,5 @@
 import type { WorkoutExercise } from '../api/types.ts';
+import { RestDurationControl } from './RestDurationControl.tsx';
 import { SetRow } from './SetRow.tsx';
 
 interface ExerciseCardProps {
@@ -30,6 +31,9 @@ export function ExerciseCard({
           {lastTimeSummary && (
             <p className="text-sm text-neutral-500">Última vez: {lastTimeSummary}</p>
           )}
+          <div className="mt-1">
+            <RestDurationControl exerciseId={workoutExercise.exerciseId} />
+          </div>
         </div>
         <button
           type="button"

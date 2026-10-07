@@ -4,6 +4,7 @@ import { ActiveWorkoutPage } from './pages/ActiveWorkoutPage.tsx';
 import { HistoryDetailPage } from './pages/HistoryDetailPage.tsx';
 import { HistoryPage } from './pages/HistoryPage.tsx';
 import { HomePage } from './pages/HomePage.tsx';
+import { RoutineEditorPage } from './pages/RoutineEditorPage.tsx';
 import { RoutinesPage } from './pages/RoutinesPage.tsx';
 
 function App() {
@@ -15,6 +16,7 @@ function App() {
         <Route path="historial" element={<HistoryPage />} />
         <Route path="historial/:id" element={<HistoryDetailPage />} />
         <Route path="rutinas" element={<RoutinesPage />} />
+        <Route path="rutinas/:id" element={<RoutineEditorPage />} />
       </Route>
     </Routes>
   );

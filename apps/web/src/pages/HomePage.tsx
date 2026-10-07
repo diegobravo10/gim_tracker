@@ -1,11 +1,14 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ApiError } from '../api/client.ts';
 import { createWorkout, getActiveWorkout } from '../api/workouts.ts';
+import { StartWorkoutSheet } from '../components/StartWorkoutSheet.tsx';
 
 export function HomePage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const [showStartSheet, setShowStartSheet] = useState(false);
 
   const activeQuery = useQuery({
     queryKey: ['workout', 'active'],
@@ -13,7 +16,7 @@ export function HomePage() {
   });
 
   const startWorkout = useMutation({
-    mutationFn: () => createWorkout(),
+    mutationFn: (routineId?: string) => createWorkout(routineId),
     onSuccess: (workout) => {
       queryClient.setQueryData(['workout', 'active'], workout);
       navigate('/entreno');
@@ -21,8 +24,13 @@ export function HomePage() {
   });
 
   const hasActiveWorkout = activeQuery.isSuccess;
-  const noActiveWorkout = activeQuery.isError && activeQuery.error instanceof ApiError
-    && activeQuery.error.status === 404;
+  const noActiveWorkout =
+    activeQuery.isError && activeQuery.error instanceof ApiError && activeQuery.error.status === 404;
+
+  function handleSelect(routineId?: string) {
+    setShowStartSheet(false);
+    startWorkout.mutate(routineId);
+  }
 
   return (
     <div className="flex flex-col items-center gap-6 pt-16">
@@ -44,7 +52,7 @@ export function HomePage() {
       {noActiveWorkout && (
         <button
           type="button"
-          onClick={() => startWorkout.mutate()}
+          onClick={() => setShowStartSheet(true)}
           disabled={startWorkout.isPending}
           className="w-full rounded-2xl bg-emerald-500 py-5 text-lg font-bold text-neutral-950 active:bg-emerald-400 disabled:opacity-60"
           style={{ minHeight: 48 }}
@@ -55,6 +63,10 @@ export function HomePage() {
 
       {startWorkout.isError && (
         <p className="text-sm text-red-400">No se pudo empezar el entreno. Intenta de nuevo.</p>
+      )}
+
+      {showStartSheet && (
+        <StartWorkoutSheet onClose={() => setShowStartSheet(false)} onSelect={handleSelect} />
       )}
     </div>
   );

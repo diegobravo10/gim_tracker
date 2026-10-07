@@ -8,6 +8,7 @@ import type { Exercise, LastExerciseSets, WorkoutExercise } from '../api/types.t
 import { AddExerciseSheet } from '../components/AddExerciseSheet.tsx';
 import { ElapsedTimer } from '../components/ElapsedTimer.tsx';
 import { ExerciseCard } from '../components/ExerciseCard.tsx';
+import { useRestTimer } from '../hooks/useRestTimer.ts';
 import { useWorkoutActions } from '../hooks/useWorkoutActions.ts';
 import { formatLastTimeSummary } from '../lib/formatters.ts';
 
@@ -33,6 +34,7 @@ export function ActiveWorkoutPage() {
   });
 
   const actions = useWorkoutActions(QUERY_KEY);
+  const restTimer = useRestTimer();
 
   const lastDataQueries = useQueries({
     queries: (workout?.exercises ?? []).map((we) => ({
@@ -132,7 +134,11 @@ export function ActiveWorkoutPage() {
               onToggleSetCompleted={(setId) => {
                 const set = we.sets.find((s) => s.id === setId);
                 if (!set) return;
-                actions.updateSet.mutate({ id: setId, data: { completed: !set.completed } });
+                const completed = !set.completed;
+                actions.updateSet.mutate({ id: setId, data: { completed } });
+                if (completed) {
+                  restTimer.start(we.exerciseId, we.exercise.name);
+                }
               }}
               onDeleteExercise={() => actions.deleteExercise.mutate(we.id)}
             />

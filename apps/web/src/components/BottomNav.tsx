@@ -8,18 +8,17 @@ const LINKS = [
 
 export function BottomNav() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 z-20 flex border-t border-neutral-800 bg-neutral-950">
+    <nav className="fixed inset-x-0 bottom-0 z-20 flex h-14 border-t border-neutral-800 bg-neutral-950">
       {LINKS.map((link) => (
         <NavLink
           key={link.to}
           to={link.to}
           end={link.to === '/'}
           className={({ isActive }) =>
-            `flex-1 py-3 text-center text-sm font-medium ${
+            `flex flex-1 items-center justify-center text-sm font-medium ${
               isActive ? 'text-emerald-400' : 'text-neutral-400'
             }`
           }
-          style={{ minHeight: 48 }}
         >
           {link.label}
         </NavLink>
