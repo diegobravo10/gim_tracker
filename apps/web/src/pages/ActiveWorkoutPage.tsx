@@ -8,19 +8,17 @@ import type { Exercise, LastExerciseSets, WorkoutExercise } from '../api/types.t
 import { AddExerciseSheet } from '../components/AddExerciseSheet.tsx';
 import { ElapsedTimer } from '../components/ElapsedTimer.tsx';
 import { ExerciseCard } from '../components/ExerciseCard.tsx';
+import { useOnline } from '../hooks/useOnline.ts';
 import { useRestTimer } from '../hooks/useRestTimer.ts';
 import { useWorkoutActions } from '../hooks/useWorkoutActions.ts';
 import { formatLastTimeSummary } from '../lib/formatters.ts';
 
 const QUERY_KEY = ['workout', 'active'];
 
-async function fetchLastOrNull(exerciseId: string): Promise<LastExerciseSets | null> {
-  try {
-    return await getExerciseLastSets(exerciseId);
-  } catch (err) {
-    if (err instanceof ApiError && err.status === 404) return null;
-    throw err;
-  }
+// Si la red falla (sin conexión incluida) no hay prellenado: no es un
+// error, el usuario agrega las series a mano.
+function fetchLastOrNull(exerciseId: string): Promise<LastExerciseSets | null> {
+  return getExerciseLastSets(exerciseId).catch(() => null);
 }
 
 export function ActiveWorkoutPage() {
@@ -35,6 +33,7 @@ export function ActiveWorkoutPage() {
 
   const actions = useWorkoutActions(QUERY_KEY);
   const restTimer = useRestTimer();
+  const isOnline = useOnline();
 
   const lastDataQueries = useQueries({
     queries: (workout?.exercises ?? []).map((we) => ({
@@ -59,45 +58,48 @@ export function ActiveWorkoutPage() {
     },
   });
 
-  async function handleSelectExercise(exercise: Exercise) {
+  function handleSelectExercise(exercise: Exercise) {
     setShowAddExercise(false);
     if (!workout) return;
 
-    const workoutExercise: WorkoutExercise = await actions.addExercise.mutateAsync({
-      workoutId: workout.id,
-      exerciseId: exercise.id,
-    });
+    // addExercise/addSet insertan de inmediato con un id temporal (ver
+    // useWorkoutActions): no hay que esperar la red para seguir, lo que
+    // además permite que el prellenado funcione estando offline.
+    const workoutExerciseTempId = actions.addExercise(workout.id, exercise);
 
-    const last = await queryClient.fetchQuery({
-      queryKey: ['exercise-last', exercise.id],
-      queryFn: () => fetchLastOrNull(exercise.id),
-      staleTime: Infinity,
-    });
-
-    for (const set of last?.sets ?? []) {
-      await actions.addSet.mutateAsync({
-        workoutExerciseId: workoutExercise.id,
-        data: { weightKg: set.weightKg, reps: set.reps, isWarmup: set.isWarmup },
+    queryClient
+      .fetchQuery({
+        queryKey: ['exercise-last', exercise.id],
+        queryFn: () => fetchLastOrNull(exercise.id),
+        staleTime: Infinity,
+      })
+      .then((last) => {
+        for (const set of last?.sets ?? []) {
+          actions.addSet(workoutExerciseTempId, {
+            weightKg: set.weightKg,
+            reps: set.reps,
+            isWarmup: set.isWarmup,
+          });
+        }
       });
-    }
   }
 
   function handleAddSet(workoutExercise: WorkoutExercise) {
     const previous = workoutExercise.sets.at(-1);
-    actions.addSet.mutate({
-      workoutExerciseId: workoutExercise.id,
-      data: {
-        weightKg: previous?.weightKg ?? 0,
-        reps: previous?.reps ?? 0,
-      },
+    actions.addSet(workoutExercise.id, {
+      weightKg: previous?.weightKg ?? 0,
+      reps: previous?.reps ?? 0,
     });
   }
 
-  if (isLoading) {
+  if (isLoading && !workout) {
     return <p className="pt-16 text-center text-neutral-500">Cargando...</p>;
   }
 
-  if (isError) {
+  // Un refetch puede fallar al arrancar sin red aunque IndexedDB ya haya
+  // restaurado un entreno válido. En ese caso seguimos mostrando el cache;
+  // el error solo reemplaza la pantalla cuando realmente no hay datos.
+  if (isError && !workout) {
     const noActive = error instanceof ApiError && error.status === 404;
     return (
       <div className="flex flex-col items-center gap-4 pt-16">
@@ -138,23 +140,19 @@ export function ActiveWorkoutPage() {
               lastTimeSummary={last ? formatLastTimeSummary(last.sets) : null}
               isPR={isPR}
               onAddSet={() => handleAddSet(we)}
-              onDeleteSet={(setId) => actions.deleteSet.mutate(setId)}
-              onChangeSetWeight={(setId, weightKg) =>
-                actions.updateSet.mutate({ id: setId, data: { weightKg } })
-              }
-              onChangeSetReps={(setId, reps) =>
-                actions.updateSet.mutate({ id: setId, data: { reps } })
-              }
+              onDeleteSet={(setId) => actions.deleteSet(setId)}
+              onChangeSetWeight={(setId, weightKg) => actions.updateSet(setId, { weightKg })}
+              onChangeSetReps={(setId, reps) => actions.updateSet(setId, { reps })}
               onToggleSetCompleted={(setId) => {
                 const set = we.sets.find((s) => s.id === setId);
                 if (!set) return;
                 const completed = !set.completed;
-                actions.updateSet.mutate({ id: setId, data: { completed } });
+                actions.updateSet(setId, { completed });
                 if (completed) {
                   restTimer.start(we.exerciseId, we.exercise.name);
                 }
               }}
-              onDeleteExercise={() => actions.deleteExercise.mutate(we.id)}
+              onDeleteExercise={() => actions.deleteExercise(we.id)}
             />
           );
         })}
@@ -176,7 +174,7 @@ export function ActiveWorkoutPage() {
         className="w-full rounded-xl bg-red-600 py-4 text-lg font-bold text-white active:bg-red-500 disabled:opacity-60"
         style={{ minHeight: 48 }}
       >
-        Terminar
+        {finishMutation.isPending && !isOnline ? 'Esperando conexión...' : 'Terminar'}
       </button>
 
       {showAddExercise && (

@@ -23,17 +23,17 @@ export function HistoryDetailPage() {
 
   const actions = useWorkoutActions(queryKey);
 
-  async function handleSelectExercise(exercise: Exercise) {
+  function handleSelectExercise(exercise: Exercise) {
     setShowAddExercise(false);
     if (!workout) return;
-    await actions.addExercise.mutateAsync({ workoutId: workout.id, exerciseId: exercise.id });
+    actions.addExercise(workout.id, exercise);
   }
 
   function handleAddSet(workoutExercise: WorkoutExercise) {
     const previous = workoutExercise.sets.at(-1);
-    actions.addSet.mutate({
-      workoutExerciseId: workoutExercise.id,
-      data: { weightKg: previous?.weightKg ?? 0, reps: previous?.reps ?? 0 },
+    actions.addSet(workoutExercise.id, {
+      weightKg: previous?.weightKg ?? 0,
+      reps: previous?.reps ?? 0,
     });
   }
 
@@ -82,19 +82,15 @@ export function HistoryDetailPage() {
             key={we.id}
             workoutExercise={we}
             onAddSet={() => handleAddSet(we)}
-            onDeleteSet={(setId) => actions.deleteSet.mutate(setId)}
-            onChangeSetWeight={(setId, weightKg) =>
-              actions.updateSet.mutate({ id: setId, data: { weightKg } })
-            }
-            onChangeSetReps={(setId, reps) =>
-              actions.updateSet.mutate({ id: setId, data: { reps } })
-            }
+            onDeleteSet={(setId) => actions.deleteSet(setId)}
+            onChangeSetWeight={(setId, weightKg) => actions.updateSet(setId, { weightKg })}
+            onChangeSetReps={(setId, reps) => actions.updateSet(setId, { reps })}
             onToggleSetCompleted={(setId) => {
               const set = we.sets.find((s) => s.id === setId);
               if (!set) return;
-              actions.updateSet.mutate({ id: setId, data: { completed: !set.completed } });
+              actions.updateSet(setId, { completed: !set.completed });
             }}
-            onDeleteExercise={() => actions.deleteExercise.mutate(we.id)}
+            onDeleteExercise={() => actions.deleteExercise(we.id)}
           />
         ))}
       </div>
